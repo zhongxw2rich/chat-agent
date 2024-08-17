@@ -9,39 +9,34 @@ from chainlit.input_widget import Select, Slider, TextInput
 
 from .base import BaseModel
 
+@cl.action_callback("")
+async def on_action(action):
+    await cl.Message(content="{action.name}").send()
+
+
 class AutoGenAgent(BaseModel):
 
     def __init__(self) -> None:
         pass
 
     async def settings(self):
-        return await cl.ChatSettings(
-            [
-                Select(
-                    id="Model",
-                    label="Deepseek - Model",
-                    values=["deepseek-chat", "deepseek-coder"],
-                    initial_index=0,
-                ),
-                Slider(
-                    id="Temperature",
-                    label="Deepseek - Temperature",
-                    initial=0.7,
-                    min=0,
-                    max=2,
-                    step=0.1,
-                )
-            ]
-        ).send()
+        pass
+
+    async def message(self, message: cl.Message):
+        pass
+
+    async def resume(self, thread: ThreadDict):
+        pass
 
     async def start(self):
-        await self.settings()
-        settings = cl.context.session.chat_settings
         llm_config = {
-            "model": settings["Model"],
-            "temperature": settings["Temperature"],
-            "api_key": os.getenv("OPENAI_API_KEY"),
-            "base_url": os.getenv("OPENAI_BASE_URL"),
+            "config_list":[{
+                "model": "deepseek-chat",
+                "api_type": "openai",
+                "api_key": os.getenv("OPENAI_API_KEY"),
+                "base_url": os.getenv("OPENAI_BASE_URL"),
+            }],
+            "temperature": 0.5,
         }
 
         assistant = ChainlitAssistantAgent(
@@ -55,24 +50,14 @@ class AutoGenAgent(BaseModel):
             },
         )
 
-        task = "Tell me a joke about NVDA and TESLA stock prices."
-        await cl.Message(content=f"Starting agents on task: {task}...").send()
+        task = await cl.AskUserMessage(
+            content="Please tell me the task you want to perform?"
+        ).send()
+        
         await cl.make_async(user_proxy.initiate_chat)(
                 assistant,
-                message=task,
+                message=task['output'],
         )
-
-    async def message(self, message: cl.Message):
-        pass
-
-    async def resume(self, thread: ThreadDict):
-        await self.settings()
-
-async def ask_helper(func, **kwargs):
-    res = await func(**kwargs).send()
-    while not res:
-        res = await func(**kwargs).send()
-    return res
 
 class ChainlitAssistantAgent(AssistantAgent):
     def send(
@@ -100,9 +85,8 @@ class ChainlitUserProxyAgent(UserProxyAgent):
         if prompt.startswith(
             "Provide feedback to assistant. Press enter to skip and use auto-reply"
         ):
-            res = cl.run_sync(
-                ask_helper(
-                    cl.AskActionMessage,
+            response = cl.run_sync(
+                cl.AskActionMessage(
                     content="Continue or provide feedback?",
                     actions=[
                         cl.Action(
@@ -119,17 +103,23 @@ class ChainlitUserProxyAgent(UserProxyAgent):
                             label="🔚 Exit Conversation"
                         ),
                     ],
-                )
+                ).send()
             )
-            if res.get("value") == "continue":
-                return ""
-            if res.get("value") == "exit":
+            if response.get("value") == "continue":
+                cl.run_sync(
+                    cl.Message(content="continue").send()
+                )
+                return "continue"
+            if response.get("value") == "exit":
+                cl.run_sync(
+                    cl.Message(content="exit").send()
+                )
                 return "exit"
 
-        reply = cl.run_sync(ask_helper(cl.AskUserMessage, content=prompt, timeout=60))
-
-        print(reply)
-        return "continue"
+            feedback = cl.run_sync(
+                cl.AskUserMessage(content=prompt).send()
+            )
+            return feedback['output']
 
     def send(
         self,

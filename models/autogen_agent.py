@@ -5,14 +5,8 @@ from autogen.agentchat import Agent, AssistantAgent, UserProxyAgent
 
 import chainlit as cl
 from chainlit.types import ThreadDict
-from chainlit.input_widget import Select, Slider, TextInput
 
 from .base import BaseModel
-
-@cl.action_callback("")
-async def on_action(action):
-    await cl.Message(content="{action.name}").send()
-
 
 class AutoGenAgent(BaseModel):
 
@@ -30,7 +24,7 @@ class AutoGenAgent(BaseModel):
 
     async def start(self):
         llm_config = {
-            "config_list":[{
+            "config_list": [{
                 "model": "deepseek-chat",
                 "api_type": "openai",
                 "api_key": os.getenv("OPENAI_API_KEY"),
@@ -51,29 +45,28 @@ class AutoGenAgent(BaseModel):
         )
 
         task = await cl.AskUserMessage(
-            content="Please tell me the task you want to perform?"
+            content="你好，请问你想执行什么AutoGen任务？"
         ).send()
         
-        await cl.make_async(user_proxy.initiate_chat)(
+        await user_proxy.a_initiate_chat(
                 assistant,
                 message=task['output'],
         )
 
 class ChainlitAssistantAgent(AssistantAgent):
-    def send(
+    async def a_send(
         self,
         message: Union[Dict, str],
         recipient: Agent,
         request_reply: Optional[bool] = None,
         silent: Optional[bool] = False,
     ) -> bool:
-        cl.run_sync(
-            cl.Message(
+        await cl.Message(
                 content=f'*Sending message to "{recipient.name}":*\n\n{message}',
                 author="AssistantAgent",
-            ).send()
-        )
-        super(ChainlitAssistantAgent, self).send(
+        ).send()
+
+        await super(ChainlitAssistantAgent, self).a_send(
             message=message,
             recipient=recipient,
             request_reply=request_reply,
@@ -81,60 +74,52 @@ class ChainlitAssistantAgent(AssistantAgent):
         )
 
 class ChainlitUserProxyAgent(UserProxyAgent):
-    def get_human_input(self, prompt: str) -> str:
-        if prompt.startswith(
-            "Provide feedback to assistant. Press enter to skip and use auto-reply"
-        ):
-            response = cl.run_sync(
-                cl.AskActionMessage(
-                    content="Continue or provide feedback?",
-                    actions=[
-                        cl.Action(
-                            name="continue", value="continue", label="✅ Continue"
-                        ),
-                        cl.Action(
-                            name="feedback",
-                            value="feedback",
-                            label="💬 Provide feedback",
-                        ),
-                        cl.Action(
-                            name="exit",
-                            value="exit",
-                            label="🔚 Exit Conversation"
-                        ),
-                    ],
-                ).send()
-            )
-            if response.get("value") == "continue":
-                cl.run_sync(
-                    cl.Message(content="continue").send()
-                )
-                return "continue"
-            if response.get("value") == "exit":
-                cl.run_sync(
-                    cl.Message(content="exit").send()
-                )
-                return "exit"
+    async def a_get_human_input(self, prompt: str) -> str:
+        response = await cl.AskActionMessage(
+                content="Continue or provide feedback?",
+                actions=[
+                    cl.Action(
+                        name="continue", 
+                        value="continue", 
+                        label="✅ Continue Conversation"
+                    ),
+                    cl.Action(
+                        name="feedback",
+                        value="feedback",
+                        label="💬 Provide feedback",
+                    ),
+                    cl.Action(
+                        name="exit",
+                        value="exit",
+                        label="🔚 Exit Conversation"
+                    ),
+                ],
+        ).send()
+        print(response)
+        if response.get("value") == "continue":
+            await cl.Message(author="UserAction", content="continue").send()
+            return "continue"
+        if response.get("value") == "exit":
+            await cl.Message(author="UserAction", content="exit").send()
+            return "exit"
+        if response.get("value") == "feedback":
+            feedback = await cl.AskUserMessage(content=prompt, timeout=60).send()
+            if feedback:
+                return feedback['output']
+            
 
-            feedback = cl.run_sync(
-                cl.AskUserMessage(content=prompt).send()
-            )
-            return feedback['output']
-
-    def send(
+    async def a_send(
         self,
         message: Union[Dict, str],
         recipient: Agent,
         request_reply: Optional[bool] = None,
         silent: Optional[bool] = False,
     ):
-        cl.run_sync(
-            cl.Message(
+        await cl.Message(
                 content=f'*Sending message to "{recipient.name}"*:\n\n{message}',
                 author="UserProxyAgent",
-            ).send()
-        )
-        super(ChainlitUserProxyAgent, self).send(
+        ).send()
+        await super(ChainlitUserProxyAgent, self).a_send(
             message=message,
             recipient=recipient,
             request_reply=request_reply,

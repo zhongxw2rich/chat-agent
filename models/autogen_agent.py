@@ -79,7 +79,7 @@ class ChainlitConversableAgent(ConversableAgent):
                     label="🔚 退出"
                 ),
             ],
-            timeout=180
+            timeout=300
         ).send())
     
         if response:
@@ -90,7 +90,7 @@ class ChainlitConversableAgent(ConversableAgent):
             if response.get("value") == "feedback":
                 feedback = cl.run_sync(cl.AskUserMessage(
                     content="请为Agent给予建议",
-                    timeout=180
+                    timeout=300
                 ).send())
                 feedback_output = str(feedback['output'])
                 if feedback_output:

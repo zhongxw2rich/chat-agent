@@ -19,7 +19,7 @@ cl_data._data_layer = SQLAlchemyDataLayer(
     conninfo=conninfo, storage_provider=BaseStorageClient
 )
 
-def switch_model(): 
+def switch_model():
     profile = cl.user_session.get("chat_profile")
     if "General Chat" == profile:
         return GeneralChat()
@@ -37,7 +37,7 @@ async def chat_profile():
         ),
         cl.ChatProfile(
             name="AutoGen Agent",
-            markdown_description="使用AutoGen自动化生成代码并执行",
+            markdown_description="使用AutoGen对话生成任务并执行",
         ),
         cl.ChatProfile(
             name="Paper Interpret",
@@ -61,6 +61,10 @@ async def settings_update(settings):
 @cl.on_chat_start
 async def chat_start():
     await switch_model().start()
+
+@cl.on_chat_end
+async def chat_end():
+    await switch_model().end()
 
 @cl.on_message
 async def message(message: cl.Message):

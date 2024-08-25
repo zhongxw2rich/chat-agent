@@ -5,5 +5,6 @@
 
 chainlit init
 mkdir .graphrag
+
 python -m graphrag.index --init --root .graphrag
 psql "postgresql://${db_user}:${db_pwd}@${db_host}:${db_port}" -f init.sql

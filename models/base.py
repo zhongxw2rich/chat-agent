@@ -13,6 +13,9 @@ class BaseModel():
     async def start(self):
         pass
 
+    async def end(self):
+        pass
+
     async def message(self, message: cl.Message):
         pass
 

@@ -119,6 +119,14 @@ class ChainlitConversableAgent(ConversableAgent):
 
 class AutoGenAgent(BaseModel):
     def __init__(self) -> None:
+        self.jupyter = JupyterCodeExecutor(
+            jupyter_server = JupyterConnectionInfo(
+                host=str(os.getenv("JUPYTER_SERVER").split(":")[0]),
+                port=int(os.getenv("JUPYTER_SERVER").split(":")[1]),
+                token=os.getenv("JUPYTER_TOKEN"),
+                use_https=False
+            )
+        )
         self.planner = ChainlitConversableAgent(
             "Planner", 
             human_input_mode="NEVER",
@@ -147,14 +155,7 @@ class AutoGenAgent(BaseModel):
             human_input_mode="NEVER",
             code_execution_config={
                 "last_n_messages": 3,
-                "executor": JupyterCodeExecutor(
-                    jupyter_server = JupyterConnectionInfo(
-                        host=str(os.getenv("JUPYTER_SERVER").split(":")[0]),
-                        port=int(os.getenv("JUPYTER_SERVER").split(":")[1]),
-                        token=os.getenv("JUPYTER_TOKEN"),
-                        use_https=False
-                    )
-                )
+                "executor": self.jupyter
             },
         )
         self.groupchat = GroupChat(
@@ -219,9 +220,7 @@ class AutoGenAgent(BaseModel):
                 self.manager,
                 message=message.content
             )
-        
             
-
     async def resume(self, thread: ThreadDict):
         pass
 
@@ -232,4 +231,5 @@ class AutoGenAgent(BaseModel):
         cl.user_session.set("runable", True)
 
     async def end(self):
+        self.jupyter.stop()
         pass

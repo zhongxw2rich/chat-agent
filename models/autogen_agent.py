@@ -89,7 +89,7 @@ class ChainlitConversableAgent(ConversableAgent):
                 return "exit"
             if response.get("value") == "feedback":
                 feedback = cl.run_sync(cl.AskUserMessage(
-                    content="请为Agent给予建议",
+                    content="为Autogen-Agent给予运行建议:",
                     timeout=300
                 ).send())
                 feedback_output = str(feedback['output'])

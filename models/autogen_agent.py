@@ -2,8 +2,8 @@ import os
 from typing import Dict, Optional, Union
 
 from autogen import GroupChat, GroupChatManager
-from autogen.coding import LocalCommandLineCodeExecutor
-from autogen.code_utils import create_virtual_env
+from autogen.coding.jupyter import JupyterCodeExecutor
+from autogen.coding.jupyter import JupyterConnectionInfo
 from autogen import Agent, ConversableAgent
 
 import chainlit as cl
@@ -147,9 +147,13 @@ class AutoGenAgent(BaseModel):
             human_input_mode="NEVER",
             code_execution_config={
                 "last_n_messages": 3,
-                "executor": LocalCommandLineCodeExecutor(
-                    work_dir=".coding",
-                    virtual_env_context=create_virtual_env(".coding/.env")
+                "executor": JupyterCodeExecutor(
+                    jupyter_server = JupyterConnectionInfo(
+                        host=str(os.getenv("JUPYTER_SERVER").split(":")[0]),
+                        port=int(os.getenv("JUPYTER_SERVER").split(":")[1]),
+                        token=os.getenv("JUPYTER_TOKEN"),
+                        use_https=False
+                    )
                 )
             },
         )

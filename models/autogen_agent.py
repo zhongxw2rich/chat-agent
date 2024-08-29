@@ -58,34 +58,50 @@ coder_llm_config = {
     "cache_seed": None
 }
 
+os.makedirs(".coding", exist_ok=True)
+
 class ChainlitConversableAgent(ConversableAgent):
     def get_human_input(self, prompt: str) -> str:
-        response = cl.run_sync(cl.AskActionMessage(
-            content="继续运行或提供反馈帮助Agent？",
-            actions=[
-                cl.Action(
-                    name="continue", 
-                    value="continue", 
-                    label="✅ 继续运行"
-                ),
-                cl.Action(
-                    name="feedback",
-                    value="feedback",
-                    label="💬 给予建议",
-                ),
-                cl.Action(
-                    name="exit",
-                    value="exit",
-                    label="🔚 退出"
-                ),
-            ],
-            timeout=300
-        ).send())
+        if self.name == "Admin":
+            response = cl.run_sync(cl.AskActionMessage(
+                content=f"继续运行或提供反馈帮助{self.name}？",
+                actions=[
+                    cl.Action(
+                        name="feedback",
+                        value="feedback",
+                        label="💬 给予建议",
+                    ),
+                    cl.Action(
+                        name="exit",
+                        value="exit",
+                        label="🔚 退出"
+                    ),
+                ],
+                timeout=300
+            ).send())
+        else:
+            response = cl.run_sync(cl.AskActionMessage(
+                content=f"继续运行或提供反馈帮助{self.name}？",
+                actions=[
+                    cl.Action(
+                        name="continue", 
+                        value="continue", 
+                        label="✅ 继续运行"
+                    ),
+                    cl.Action(
+                        name="feedback",
+                        value="feedback",
+                        label="💬 给予建议",
+                    ),
+                ],
+                timeout=300
+            ).send())
     
         if response:
             if response.get("value") == "continue":
                 return ""
             if response.get("value") == "exit":
+                print("exit")
                 return "exit"
             if response.get("value") == "feedback":
                 feedback = cl.run_sync(cl.AskUserMessage(
@@ -119,51 +135,8 @@ class ChainlitConversableAgent(ConversableAgent):
 
 class AutoGenAgent(BaseModel):
     def __init__(self) -> None:
-        self.jupyter = JupyterCodeExecutor(
-            jupyter_server = JupyterConnectionInfo(
-                host=str(os.getenv("JUPYTER_SERVER").split(":")[0]),
-                port=int(os.getenv("JUPYTER_SERVER").split(":")[1]),
-                token=os.getenv("JUPYTER_TOKEN"),
-                use_https=False
-            )
-        )
-        self.planner = ChainlitConversableAgent(
-            "Planner", 
-            human_input_mode="NEVER",
-            llm_config=chat_llm_config,
-            system_message=planner_prompt,
-        )
-        self.admin = ChainlitConversableAgent(
-            "Admin",
-            human_input_mode="ALWAYS",
-            system_message=admin_prompt,
-        )
-        self.engineer = ChainlitConversableAgent(
-            "Engineer",
-            human_input_mode="ALWAYS",
-            llm_config=coder_llm_config,
-            system_message=engineer_prompt,
-        )
-        self.scientist = ChainlitConversableAgent(
-            "Scientist",
-            human_input_mode="ALWAYS",
-            llm_config=coder_llm_config,
-            system_message=scientist_prompt,
-        )
-        self.executor = ChainlitConversableAgent(
-            "Executor",
-            human_input_mode="NEVER",
-            code_execution_config={
-                "last_n_messages": 3,
-                "executor": self.jupyter
-            },
-        )
-        self.groupchat = GroupChat(
-            agents=[self.admin, self.planner, self.engineer, self.executor, self.scientist],
-            messages=[], max_round=20,
-            speaker_selection_method=self.state_transition,
-        )
-        self.manager = GroupChatManager(groupchat=self.groupchat, llm_config=chat_llm_config)
+        pass
+
 
     def state_transition(self, last_speaker, groupchat):
         select = cl.run_sync(
@@ -200,36 +173,92 @@ class AutoGenAgent(BaseModel):
         )
         if select:
             if select.get("value") == "Planner":
-                return self.planner
+                return cl.user_session.get("planner")
             if select.get("value") == "Engineer":
-                return self.engineer
+                return cl.user_session.get("engineer")
             if select.get("value") == "Scientist":
-                return self.scientist
+                return cl.user_session.get("scientist")
             if select.get("value") == "Executor":
-                return self.executor
-            return self.admin
+                return cl.user_session.get("executor")
+            return cl.user_session.get("admin")
             
         
     async def settings(self):
             pass
 
     async def message(self, message: cl.Message):
-        runable = cl.user_session.get("runable")
-        if runable:
-            self.admin.initiate_chat(
-                self.manager,
-                message=message.content
-            )
+        manager: GroupChatManager = cl.user_session.get("manager")
+        manager.initiate_chat(
+            manager,
+            message=message.content,
+        )
             
     async def resume(self, thread: ThreadDict):
         pass
 
     async def start(self):
+        jupyter = JupyterCodeExecutor(
+            jupyter_server = JupyterConnectionInfo(
+                host=str(os.getenv("JUPYTER_SERVER").split(":")[0]),
+                port=int(os.getenv("JUPYTER_SERVER").split(":")[1]),
+                token=os.getenv("JUPYTER_TOKEN"),
+                use_https=False
+            ),
+            output_dir=".coding"
+        )
+        cl.user_session.set("jupyter", jupyter)
+        print("start jupyter kernel " + jupyter._kernel_id)
+
+        planner = ChainlitConversableAgent(
+            "Planner", 
+            human_input_mode="NEVER",
+            llm_config=chat_llm_config,
+            system_message=planner_prompt,
+        )
+        cl.user_session.set("planner", planner)
+        admin = ChainlitConversableAgent(
+            "Admin",
+            human_input_mode="ALWAYS",
+            system_message=admin_prompt,
+        )
+        cl.user_session.set("admin", admin)
+        engineer = ChainlitConversableAgent(
+            "Engineer",
+            human_input_mode="ALWAYS",
+            llm_config=coder_llm_config,
+            system_message=engineer_prompt,
+        )
+        cl.user_session.set("engineer", engineer)
+        scientist = ChainlitConversableAgent(
+            "Scientist",
+            human_input_mode="ALWAYS",
+            llm_config=coder_llm_config,
+            system_message=scientist_prompt,
+        )
+        cl.user_session.set("scientist", scientist)
+        executor = ChainlitConversableAgent(
+            "Executor",
+            human_input_mode="NEVER",
+            code_execution_config={
+                "last_n_messages": 3,
+                "executor": jupyter
+            },
+        )
+        cl.user_session.set("executor", executor)
+        groupchat = GroupChat(
+            agents=[admin, planner, engineer, executor, scientist],
+            messages=[], max_round=20,
+            speaker_selection_method=self.state_transition,
+        )
+        manager = GroupChatManager(groupchat=groupchat, llm_config=chat_llm_config)
+
+        cl.user_session.set("manager",manager)
+
         await cl.Message(
             author="Chat Agent",content=start_system_message
         ).send()
-        cl.user_session.set("runable", True)
 
     async def end(self):
-        self.jupyter.stop()
-        pass
+        jupyter: JupyterCodeExecutor = cl.user_session.get("jupyter")
+        jupyter.stop()
+        print("stop jupyter kernel " + jupyter._kernel_id)

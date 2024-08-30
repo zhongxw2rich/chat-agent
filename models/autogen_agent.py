@@ -9,8 +9,6 @@ from autogen import Agent, ConversableAgent
 import chainlit as cl
 from chainlit.types import ThreadDict
 
-from .base import BaseModel
-
 start_system_message = "你好，请告诉我你的需求。我会帮你规划并执行。"
 
 admin_prompt="""
@@ -64,6 +62,7 @@ class ChainlitConversableAgent(ConversableAgent):
     def get_human_input(self, prompt: str) -> str:
         if self.name == "Admin":
             response = cl.run_sync(cl.AskActionMessage(
+                author=self.name,
                 content=f"继续运行或提供反馈帮助{self.name}？",
                 actions=[
                     cl.Action(
@@ -81,6 +80,7 @@ class ChainlitConversableAgent(ConversableAgent):
             ).send())
         else:
             response = cl.run_sync(cl.AskActionMessage(
+                author=self.name,
                 content=f"继续运行或提供反馈帮助{self.name}？",
                 actions=[
                     cl.Action(
@@ -105,6 +105,7 @@ class ChainlitConversableAgent(ConversableAgent):
                 return "exit"
             if response.get("value") == "feedback":
                 feedback = cl.run_sync(cl.AskUserMessage(
+                    author=self.name,
                     content="为Autogen-Agent给予运行建议:",
                     timeout=300
                 ).send())
@@ -124,7 +125,7 @@ class ChainlitConversableAgent(ConversableAgent):
         silent: Optional[bool] = False,
     ):
         content = message if isinstance(message, str) else message['content']
-        cl.run_sync(cl.Message(content=content).send())
+        cl.run_sync(cl.Message(author=self.name,content=content).send())
         super(ChainlitConversableAgent, self).send(
             message=content,
             recipient=recipient,
@@ -133,7 +134,7 @@ class ChainlitConversableAgent(ConversableAgent):
         )
 
 
-class AutoGenAgent(BaseModel):
+class AutoGenAgent():
     def __init__(self) -> None:
         pass
 
@@ -141,6 +142,7 @@ class AutoGenAgent(BaseModel):
     def state_transition(self, last_speaker, groupchat):
         select = cl.run_sync(
              cl.AskActionMessage(
+                 author="Chat Agent",
                   content="请问下一步由谁执行？",
                   actions=[
                     cl.Action(
@@ -169,6 +171,7 @@ class AutoGenAgent(BaseModel):
                         label="🧑‍💼 管理员"
                     )
                 ],
+                timeout=300
             ).send()
         )
         if select:

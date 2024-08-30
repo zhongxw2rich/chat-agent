@@ -3,9 +3,7 @@ import chainlit as cl
 from chainlit.types import ThreadDict
 from chainlit.step import StepDict
 
-from .base import BaseModel
-
-class PaperInterpret(BaseModel):
+class PaperInterpret():
 
     def __init__(self) -> None:
         pass

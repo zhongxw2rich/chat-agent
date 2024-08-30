@@ -1,14 +1,11 @@
 from typing import Any, Dict
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, AsyncStream
+from openai.types.chat import ChatCompletionChunk
 
 import chainlit as cl
 from chainlit.input_widget import Select, Slider, TextInput
 
-from .base import BaseModel
-
-client = AsyncOpenAI()
-
-class GeneralChat(BaseModel):
+class GeneralChat():
     def __init__(self) -> None:
         pass
 
@@ -39,12 +36,19 @@ class GeneralChat(BaseModel):
         ).send()
     
     async def start(self):
+        client = AsyncOpenAI()
+        cl.user_session.set("openai_client", client)
         await self.settings()
         content = "你好，我是 DeepSeek 通用对话助手，有问题尽管问我。"
         start_message = cl.Message(type="system_message", content=content)
         await start_message.send()
+    
+    async def end(self):
+        client: AsyncOpenAI = cl.user_session.get("openai_client")
+        await client.close()
 
     async def message(self, message):
+        client: AsyncOpenAI = cl.user_session.get("openai_client")
         settings = cl.context.session.chat_settings
         model = settings["Model"]
         temperature = settings["Temperature"]
@@ -54,7 +58,7 @@ class GeneralChat(BaseModel):
 
         return_message = cl.Message(content="")
         await return_message.send()
-        stream = await client.chat.completions.create(
+        stream: AsyncStream[ChatCompletionChunk] = await client.chat.completions.create(
             model=model, 
             messages=history_messages, 
             temperature=temperature, 

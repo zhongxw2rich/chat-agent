@@ -12,8 +12,8 @@ from models import GeneralChat
 from models import AutoGenAgent
 from models import PaperInterpret
 
-conninfo = os.getenv('POSTGRESQL_CONNINFO')
-auth_password = os.getenv('AUTH_PASSOWRD')
+conninfo = os.getenv('CHAINLIT_DB_CONNINFO')
+auth_password = os.getenv('CHAINLIT_AUTH_PASSOWRD')
 
 cl_data._data_layer = SQLAlchemyDataLayer(
     conninfo=conninfo, storage_provider=BaseStorageClient

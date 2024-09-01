@@ -5,7 +5,7 @@ from chainlit.types import ThreadDict
 from langchain_postgres import PGVector
 from langchain_core.documents import Document
 from langchain_community.embeddings import DashScopeEmbeddings
-from .utils.langchain_utils import get_collections
+from .utils.langchain_utils import get_collections, index_document
 from chainlit.input_widget import Select, Slider, TextInput
 
 conninfo = os.getenv('LANGCHAIN_DB_CONNINFO')
@@ -26,19 +26,19 @@ class PaperInterpret():
             [
                 Select(
                     id="Document",
-                    label="Document Select",
+                    label="请选择文档",
                     values=docs,
                     initial_index=0,
                 ),
                 Select(
                     id="Model",
-                    label="Deepseek - Model",
+                    label="Model",
                     values=["deepseek-chat", "deepseek-coder"],
                     initial_index=0,
                 ),
                 Slider(
                     id="Temperature",
-                    label="Deepseek - Temperature",
+                    label="Temperature",
                     initial=1,
                     min=0,
                     max=2,
@@ -46,7 +46,7 @@ class PaperInterpret():
                 ),
                 TextInput(
                     id="Prompt",
-                    label="Deepseek - Prompt",
+                    label="Prompt",
                     initial="you are a helpful assistant.",
                     multiline=True,
                 )
@@ -55,6 +55,36 @@ class PaperInterpret():
 
 
     async def start(self):
+        action = await cl.AskActionMessage(
+            content="请选择要执行的操作",
+            actions=[
+                cl.Action(
+                    name="Ask",
+                    value="Ask",
+                    label="🚀 直接提问"
+                ),
+                cl.Action(
+                    name="Upload",
+                    value="Upload",
+                    label="📤 文档上传"
+                ),
+                cl.Action(
+                    name="Manage",
+                    value="Manage",
+                    label="📑 文档管理"
+                )
+            ]
+        ).send()
+
+        if action.get("value") == "Upload":
+            files = await cl.AskFileMessage(
+                content="请上传文档", 
+                accept=["application/pdf", "text/plain"], 
+                max_size_mb=10,
+                timeout=300
+            ).send()
+            index_document(files[0])
+            
         await self.settings()
         
     async def end(self):
@@ -62,6 +92,8 @@ class PaperInterpret():
 
     async def message(self, message: cl.Message):
         pass
+        
+
 
     async def resume(self, thread: ThreadDict):
         await self.settings()

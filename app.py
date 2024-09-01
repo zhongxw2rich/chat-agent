@@ -1,12 +1,12 @@
 import os
-import utils.app_util as util
+import utils.app_utils as utils
 from typing import List, Optional
 
 import chainlit as cl
 import chainlit.data as cl_data
 from chainlit.types import ThreadDict
-from chainlit.data import BaseStorageClient
 from chainlit.data.sql_alchemy import SQLAlchemyDataLayer
+from utils.app_utils import OSS2StorageClient
 
 from models import GeneralChat
 from models import AutoGenAgent
@@ -16,7 +16,11 @@ conninfo = os.getenv('CHAINLIT_DB_CONNINFO')
 auth_password = os.getenv('CHAINLIT_AUTH_PASSOWRD')
 
 cl_data._data_layer = SQLAlchemyDataLayer(
-    conninfo=conninfo, storage_provider=BaseStorageClient
+    conninfo=conninfo,
+    storage_provider=OSS2StorageClient(
+        access_key_id=os.getenv('OSS_ACCESS_KEY_ID'),
+        access_key_secret=os.getenv('OSS_ACCESS_KEY_SECRET')
+    )
 )
 
 def switch_model():
@@ -47,7 +51,7 @@ async def chat_profile():
 
 @cl.password_auth_callback
 def auth_callback(username: str, password: str) -> Optional[cl.User]:
-    if (username, util.hmac_sha256(password)) == ("admin", auth_password):
+    if (username, utils.hmac_sha256(password)) == ("admin", auth_password):
         return cl.User(
             identifier="admin", metadata={"role": "admin", "provider": "credentials"}
         )

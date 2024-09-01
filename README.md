@@ -13,7 +13,7 @@ pip install langchain langchain_community langchain_openai langchain_postgres  -
 
 pip install asyncpg psycopg[binary] -i https://pypi.tuna.tsinghua.edu.cn/simple
 
-pip install dashscope -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install dashscope oss2 -i https://pypi.tuna.tsinghua.edu.cn/simple
 
-pip install pandas nump plotly matplotlib -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install pandas nump plotly matplotlib pypdf -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
